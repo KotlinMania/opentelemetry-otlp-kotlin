@@ -1,7 +1,9 @@
+@file:OptIn(kotlin.experimental.ExperimentalObjCRefinement::class)
 // port-lint: source src/exporter/mod.rs
 package io.github.kotlinmania.opentelemetryotlp.exporter
 
 import io.github.kotlinmania.opentelemetryotlp.Protocol
+import kotlin.native.HiddenFromObjC
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.milliseconds
 
@@ -91,6 +93,7 @@ public class ExportConfig(
  * breaking changes. This could be refined after polishing and finalizing the
  * errors.
  */
+@HiddenFromObjC
 public sealed class ExporterBuildError(message: String) : Exception(message) {
     /** Spawning a new thread failed. */
     public object ThreadSpawnFailed :
@@ -143,6 +146,7 @@ public enum class Compression {
          * [ExporterBuildError.UnsupportedCompressionAlgorithm] for inputs that
          * are not recognized.
          */
+        @HiddenFromObjC
         public fun fromString(s: String): Result<Compression> = when (s) {
             "gzip" -> Result.success(Gzip)
             "zstd" -> Result.success(Zstd)
