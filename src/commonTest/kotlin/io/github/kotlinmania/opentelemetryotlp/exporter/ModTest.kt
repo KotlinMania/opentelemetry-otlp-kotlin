@@ -124,11 +124,12 @@ class ModTest {
             object : HasExportConfig {
                 override var exportConfig: ExportConfig = ExportConfig()
             }
-        val source = ExportConfig(
-            endpoint = "http://example.invalid",
-            protocol = Protocol.Grpc,
-            timeout = 5.seconds,
-        )
+        val source =
+            ExportConfig(
+                endpoint = "http://example.invalid",
+                protocol = Protocol.Grpc,
+                timeout = 5.seconds,
+            )
         target.applyExportConfig(source)
         assertEquals("http://example.invalid", target.exportConfig.endpoint)
         assertEquals(Protocol.Grpc, target.exportConfig.protocol)
