@@ -1,4 +1,4 @@
-// port-lint: ignore
+// port-lint: tests src/exporter/mod.rs
 // Kotlin-side tests exercising the leaf helpers translated from
 // `src/exporter/mod.rs`. Upstream tests there rely on `temp_env` and on
 // builder types that have not been ported yet, so this file is original
@@ -15,7 +15,6 @@ import kotlin.time.Duration.Companion.milliseconds
 import kotlin.time.Duration.Companion.seconds
 
 class ModTest {
-
     @Test
     fun protocolDefaultIsHttpBinary() {
         assertEquals(Protocol.HttpBinary, defaultProtocol())
@@ -121,9 +120,10 @@ class ModTest {
 
     @Test
     fun applyExportConfigCopiesAllFields() {
-        val target = object : HasExportConfig {
-            override var exportConfig: ExportConfig = ExportConfig()
-        }
+        val target =
+            object : HasExportConfig {
+                override var exportConfig: ExportConfig = ExportConfig()
+            }
         val source = ExportConfig(
             endpoint = "http://example.invalid",
             protocol = Protocol.Grpc,
@@ -137,9 +137,10 @@ class ModTest {
 
     @Test
     fun applyEndpointChainsAndReturnsReceiver() {
-        val builder = object : HasExportConfig {
-            override var exportConfig: ExportConfig = ExportConfig()
-        }
+        val builder =
+            object : HasExportConfig {
+                override var exportConfig: ExportConfig = ExportConfig()
+            }
         val returned = builder.applyEndpoint("http://otel:4318").applyTimeout(7.seconds)
         assertEquals(builder, returned)
         assertEquals("http://otel:4318", builder.exportConfig.endpoint)

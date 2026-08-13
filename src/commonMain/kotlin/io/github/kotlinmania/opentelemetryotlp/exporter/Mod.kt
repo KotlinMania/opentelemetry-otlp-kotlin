@@ -1,5 +1,7 @@
 @file:OptIn(kotlin.experimental.ExperimentalObjCRefinement::class)
+
 // port-lint: source src/exporter/mod.rs
+
 package io.github.kotlinmania.opentelemetryotlp.exporter
 
 import io.github.kotlinmania.opentelemetryotlp.Protocol
@@ -70,10 +72,8 @@ public class ExportConfig(
      * Note: Programmatically setting this will override any value set via the environment variable.
      */
     public var endpoint: String? = null,
-
     /** The protocol to use when communicating with the collector. */
     public var protocol: Protocol = defaultProtocol(),
-
     /**
      * The timeout to the collector.
      * The default value is 10 seconds.
@@ -94,7 +94,9 @@ public class ExportConfig(
  * errors.
  */
 @HiddenFromObjC
-public sealed class ExporterBuildError(message: String) : Exception(message) {
+public sealed class ExporterBuildError(
+    message: String,
+) : Exception(message) {
     /** Spawning a new thread failed. */
     public object ThreadSpawnFailed :
         ExporterBuildError("Spawning a new thread failed. Unable to create Reqwest-Blocking client.")
@@ -109,12 +111,15 @@ public sealed class ExporterBuildError(message: String) : Exception(message) {
     public object NoHttpClient : ExporterBuildError("no http client specified")
 
     /** Unsupported compression algorithm. */
-    public class UnsupportedCompressionAlgorithm(public val algorithm: String) :
-        ExporterBuildError("unsupported compression algorithm '$algorithm'")
+    public class UnsupportedCompressionAlgorithm(
+        public val algorithm: String,
+    ) : ExporterBuildError("unsupported compression algorithm '$algorithm'")
 
     /** Invalid URI. */
-    public class InvalidUri(public val uri: String, public val reason: String) :
-        ExporterBuildError("invalid URI $uri. Reason $reason")
+    public class InvalidUri(
+        public val uri: String,
+        public val reason: String,
+    ) : ExporterBuildError("invalid URI $uri. Reason $reason")
 
     /**
      * Failed due to an internal error.
@@ -123,7 +128,9 @@ public sealed class ExporterBuildError(message: String) : Exception(message) {
      * and subject to change without notice. Consumers of this error should not
      * rely on its content beyond logging.
      */
-    public class InternalFailure(public val reason: String) : ExporterBuildError("Reason: $reason")
+    public class InternalFailure(
+        public val reason: String,
+    ) : ExporterBuildError("Reason: $reason")
 }
 
 /** The compression algorithm to use when sending data. */
@@ -135,10 +142,11 @@ public enum class Compression {
     Zstd,
     ;
 
-    override fun toString(): String = when (this) {
-        Gzip -> "gzip"
-        Zstd -> "zstd"
-    }
+    override fun toString(): String =
+        when (this) {
+            Gzip -> "gzip"
+            Zstd -> "zstd"
+        }
 
     public companion object {
         /**
@@ -147,21 +155,23 @@ public enum class Compression {
          * are not recognized.
          */
         @HiddenFromObjC
-        public fun fromString(s: String): Result<Compression> = when (s) {
-            "gzip" -> Result.success(Gzip)
-            "zstd" -> Result.success(Zstd)
-            else -> Result.failure(ExporterBuildError.UnsupportedCompressionAlgorithm(s))
-        }
+        public fun fromString(s: String): Result<Compression> =
+            when (s) {
+                "gzip" -> Result.success(Gzip)
+                "zstd" -> Result.success(Zstd)
+                else -> Result.failure(ExporterBuildError.UnsupportedCompressionAlgorithm(s))
+            }
     }
 }
 
 /** Default protocol based on enabled features. */
-internal fun defaultProtocol(): Protocol = when (OTEL_EXPORTER_OTLP_PROTOCOL_DEFAULT) {
-    OTEL_EXPORTER_OTLP_PROTOCOL_HTTP_PROTOBUF -> Protocol.HttpBinary
-    OTEL_EXPORTER_OTLP_PROTOCOL_GRPC -> Protocol.Grpc
-    OTEL_EXPORTER_OTLP_PROTOCOL_HTTP_JSON -> Protocol.HttpJson
-    else -> Protocol.HttpBinary
-}
+internal fun defaultProtocol(): Protocol =
+    when (OTEL_EXPORTER_OTLP_PROTOCOL_DEFAULT) {
+        OTEL_EXPORTER_OTLP_PROTOCOL_HTTP_PROTOBUF -> Protocol.HttpBinary
+        OTEL_EXPORTER_OTLP_PROTOCOL_GRPC -> Protocol.Grpc
+        OTEL_EXPORTER_OTLP_PROTOCOL_HTTP_JSON -> Protocol.HttpJson
+        else -> Protocol.HttpBinary
+    }
 
 /** Crate version, exposed by upstream through the CARGO_PKG_VERSION compile-time macro. */
 private const val OTEL_OTLP_EXPORTER_CRATE_VERSION: String = "0.31.0"
@@ -309,7 +319,8 @@ internal fun parseHeaderKeyValueString(keyValueString: String): Pair<String, Str
  * segments, matching upstream `split_terminator`.
  */
 internal fun parseHeaderString(value: String): Sequence<Pair<String, String>> =
-    value.splitToSequence(',')
+    value
+        .splitToSequence(',')
         .filter { it.isNotEmpty() }
         .map { it.trim() }
         .mapNotNull { parseHeaderKeyValueString(it) }
