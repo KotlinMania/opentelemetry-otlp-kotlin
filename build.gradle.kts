@@ -921,7 +921,7 @@ tasks.register("hostTests") {
     )
 }
 
-// Patch generated SPM package: add macOS platform and escape Swift reserved keywords
+// Patch generated SPM package: add macOS platform and resolve Swift reserved keywords
 tasks.matching { it.name.contains("GenerateSPMPackage") }.configureEach {
     doLast {
         val spmDir = layout.buildDirectory.dir("SPMPackage").orNull?.asFile
@@ -939,9 +939,16 @@ tasks.matching { it.name.contains("GenerateSPMPackage") }.configureEach {
                     }
                 } else if (file.extension == "swift") {
                     var text = file.readText()
-                    if (text.contains("enum Protocol:") || text.contains(".Protocol")) {
-                        text = text.replace("public enum Protocol:", "public enum `Protocol`:")
-                            .replace(".opentelemetryotlp.Protocol", ".opentelemetryotlp.`Protocol`")
+                    if (text.contains("Protocol")) {
+                        text = text
+                            .replace("public enum `Protocol`:", "public enum OtlpProtocol:")
+                            .replace("public enum Protocol:", "public enum OtlpProtocol:")
+                            .replace(".opentelemetryotlp.`Protocol`", ".opentelemetryotlp.OtlpProtocol")
+                            .replace(".opentelemetryotlp.Protocol", ".opentelemetryotlp.OtlpProtocol")
+                            .replace("Protocol.allCases", "OtlpProtocol.allCases")
+                        if (file.name == "OpentelemetryOtlp.swift" && !text.contains("public typealias OtlpProtocol")) {
+                            text = "public typealias OtlpProtocol = ExportedKotlinPackages.io.github.kotlinmania.opentelemetryotlp.OtlpProtocol\n" + text
+                        }
                         file.writeText(text)
                     }
                 }
