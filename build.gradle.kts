@@ -921,20 +921,29 @@ tasks.register("hostTests") {
     )
 }
 
-// Patch generated SPM Package.swift to include minimum macOS platform for Swift Concurrency
+// Patch generated SPM package: add macOS platform and escape Swift reserved keywords
 tasks.matching { it.name.contains("GenerateSPMPackage") }.configureEach {
     doLast {
         val spmDir = layout.buildDirectory.dir("SPMPackage").orNull?.asFile
         if (spmDir != null && spmDir.exists()) {
-            spmDir.walkTopDown().filter { it.name == "Package.swift" }.forEach { file ->
-                val text = file.readText()
-                if (!text.contains("platforms:")) {
-                    file.writeText(
-                        text.replaceFirst(
-                            Regex("""(let package = Package\s*\(\s*name:\s*"[^"]*",)"""),
-                            "$1\n    platforms: [.macOS(.v14)],",
-                        ),
-                    )
+            spmDir.walkTopDown().forEach { file ->
+                if (file.name == "Package.swift") {
+                    val text = file.readText()
+                    if (!text.contains("platforms:")) {
+                        file.writeText(
+                            text.replaceFirst(
+                                Regex("""(let package = Package\s*\(\s*name:\s*"[^"]*",)"""),
+                                "$1\n    platforms: [.macOS(.v14)],",
+                            ),
+                        )
+                    }
+                } else if (file.extension == "swift") {
+                    var text = file.readText()
+                    if (text.contains("enum Protocol:") || text.contains(".Protocol")) {
+                        text = text.replace("public enum Protocol:", "public enum `Protocol`:")
+                            .replace(".opentelemetryotlp.Protocol", ".opentelemetryotlp.`Protocol`")
+                        file.writeText(text)
+                    }
                 }
             }
         }
