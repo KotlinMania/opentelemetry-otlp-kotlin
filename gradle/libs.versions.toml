@@ -44,4 +44,9 @@ opentelemetry-otlp-commonMain = [
   "kotlinx-serialization-json",
   "kotlinx-datetime",
   "collections-immutable",
+  "http-kotlin",
+  "serde-kotlin",
+  "thiserror-kotlin",
+  "tokio-kotlin",
+  "futures-kotlin",
 ]
