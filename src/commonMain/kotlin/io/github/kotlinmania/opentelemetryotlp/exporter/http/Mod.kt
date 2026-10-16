@@ -18,3 +18,5 @@ package io.github.kotlinmania.opentelemetryotlp.exporter.http
 //
 // Callers migrated:
 // (none)
+
+internal object Mod

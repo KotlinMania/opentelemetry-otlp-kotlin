@@ -17,8 +17,10 @@ import io.github.kotlinmania.opentelemetryotlp.exporter.WithExportConfig
 public class TonicExporterBuilder(
     override var exportConfig: ExportConfig = ExportConfig(),
     override var tonicConfig: TonicConfig = TonicConfig(),
-) : HasExportConfig, HasTonicConfig, WithExportConfig<TonicExporterBuilder>, WithTonicConfig<TonicExporterBuilder> {
-
+) : HasExportConfig,
+    HasTonicConfig,
+    WithExportConfig<TonicExporterBuilder>,
+    WithTonicConfig<TonicExporterBuilder> {
     override fun withEndpoint(endpoint: String): TonicExporterBuilder {
         exportConfig.endpoint = endpoint
         return this

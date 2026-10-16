@@ -17,8 +17,10 @@ import io.github.kotlinmania.opentelemetryotlp.exporter.WithExportConfig
 public class HttpExporterBuilder(
     override var exportConfig: ExportConfig = ExportConfig(),
     public var httpConfig: HttpConfig = HttpConfig(),
-) : HasExportConfig, HasHttpConfig, WithExportConfig<HttpExporterBuilder>, WithHttpConfig<HttpExporterBuilder> {
-
+) : HasExportConfig,
+    HasHttpConfig,
+    WithExportConfig<HttpExporterBuilder>,
+    WithHttpConfig<HttpExporterBuilder> {
     override fun httpClientConfig(): HttpConfig = httpConfig
 
     override fun withEndpoint(endpoint: String): HttpExporterBuilder {

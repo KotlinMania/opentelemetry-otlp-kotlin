@@ -17,3 +17,5 @@ package io.github.kotlinmania.opentelemetryotlp.exporter.tonic
 //
 // Callers migrated:
 // (none)
+
+internal object Mod

@@ -23,15 +23,17 @@ public interface HasHttpConfig {
 /** Expose methods to override [HttpConfig]. */
 public interface WithHttpConfig<T : WithHttpConfig<T>> {
     public fun withHeaders(headers: Map<String, String>): T
+
     public fun withCompression(compression: Compression): T
 }
 
 public fun buildEndpointUri(endpoint: String, path: String): Result<String> {
-    val cleanPath = if (endpoint.endsWith('/') && path.startsWith('/')) {
-        path.substring(1)
-    } else {
-        path
-    }
+    val cleanPath =
+        if (endpoint.endsWith('/') && path.startsWith('/')) {
+            path.substring(1)
+        } else {
+            path
+        }
     val combined = "$endpoint$cleanPath"
     return if (combined.startsWith("http://") || combined.startsWith("https://")) {
         Result.success(combined)

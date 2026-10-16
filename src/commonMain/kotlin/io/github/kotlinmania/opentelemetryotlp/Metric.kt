@@ -2,12 +2,8 @@
 package io.github.kotlinmania.opentelemetryotlp
 
 import io.github.kotlinmania.opentelemetryotlp.exporter.ExportConfig
-import io.github.kotlinmania.opentelemetryotlp.exporter.ExporterBuildError
-import io.github.kotlinmania.opentelemetryotlp.exporter.HasExportConfig
-import io.github.kotlinmania.opentelemetryotlp.exporter.http.HasHttpConfig
 import io.github.kotlinmania.opentelemetryotlp.exporter.http.HttpConfig
 import io.github.kotlinmania.opentelemetryotlp.exporter.http.OtlpHttpClient
-import io.github.kotlinmania.opentelemetryotlp.exporter.tonic.HasTonicConfig
 import io.github.kotlinmania.opentelemetryotlp.exporter.tonic.TonicConfig
 import io.github.kotlinmania.opentelemetryotlp.exporter.tonic.TonicMetricsClient
 import kotlin.time.Duration
@@ -84,6 +80,7 @@ public fun MetricExporterBuilder<HttpExporterBuilderSet>.httpClientConfig(): Htt
 /** An interface for OTLP metrics clients. */
 public interface MetricsClient {
     public suspend fun export(metrics: Any): Result<Unit>
+
     public fun shutdown(): Result<Unit>
 }
 
@@ -93,8 +90,13 @@ public class MetricExporter internal constructor(
     internal val temporality: Temporality,
 ) {
     public sealed class SupportedTransportClient {
-        public class Tonic(public val client: TonicMetricsClient) : SupportedTransportClient()
-        public class Http(public val client: OtlpHttpClient) : SupportedTransportClient()
+        public class Tonic(
+            public val client: TonicMetricsClient,
+        ) : SupportedTransportClient()
+
+        public class Http(
+            public val client: OtlpHttpClient,
+        ) : SupportedTransportClient()
     }
 
     public fun fmt(): String = "MetricExporter"

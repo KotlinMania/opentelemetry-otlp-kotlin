@@ -10,12 +10,14 @@ class SmokeTest {
     @Test
     fun smokeTracer() {
         val metadata = mapOf("x-header-key" to "header-value")
-        val exporterResult = SpanExporter.builder()
-            .withTonic()
-            .withCompression(Compression.Gzip)
-            .withEndpoint("http://localhost:4317")
-            .withMetadata(metadata)
-            .build()
+        val exporterResult =
+            SpanExporter
+                .builder()
+                .withTonic()
+                .withCompression(Compression.Gzip)
+                .withEndpoint("http://localhost:4317")
+                .withMetadata(metadata)
+                .build()
 
         assertTrue(exporterResult.isSuccess)
         val exporter = exporterResult.getOrThrow()

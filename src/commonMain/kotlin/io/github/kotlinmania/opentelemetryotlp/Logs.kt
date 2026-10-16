@@ -2,16 +2,11 @@
 package io.github.kotlinmania.opentelemetryotlp
 
 import io.github.kotlinmania.opentelemetryotlp.exporter.ExportConfig
-import io.github.kotlinmania.opentelemetryotlp.exporter.ExporterBuildError
-import io.github.kotlinmania.opentelemetryotlp.exporter.HasExportConfig
-import io.github.kotlinmania.opentelemetryotlp.exporter.http.HasHttpConfig
 import io.github.kotlinmania.opentelemetryotlp.exporter.http.HttpConfig
 import io.github.kotlinmania.opentelemetryotlp.exporter.http.OtlpHttpClient
-import io.github.kotlinmania.opentelemetryotlp.exporter.tonic.HasTonicConfig
 import io.github.kotlinmania.opentelemetryotlp.exporter.tonic.TonicConfig
 import io.github.kotlinmania.opentelemetryotlp.exporter.tonic.TonicLogsClient
 import kotlin.time.Duration
-import kotlin.time.Duration.Companion.seconds
 
 /** Compression algorithm to use, defaults to none. */
 public const val OTEL_EXPORTER_OTLP_LOGS_COMPRESSION: String = "OTEL_EXPORTER_OTLP_LOGS_COMPRESSION"
@@ -76,8 +71,13 @@ public class LogExporter internal constructor(
     public val client: SupportedTransportClient,
 ) {
     public sealed class SupportedTransportClient {
-        public class Tonic(public val client: TonicLogsClient) : SupportedTransportClient()
-        public class Http(public val client: OtlpHttpClient) : SupportedTransportClient()
+        public class Tonic(
+            public val client: TonicLogsClient,
+        ) : SupportedTransportClient()
+
+        public class Http(
+            public val client: OtlpHttpClient,
+        ) : SupportedTransportClient()
     }
 
     public suspend fun export(batch: List<Any>): Result<Unit> =

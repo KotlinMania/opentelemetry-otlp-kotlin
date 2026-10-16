@@ -90,14 +90,16 @@ class ExportConfigTest {
 
     @Test
     fun testApplyExportConfig() {
-        val cfg = ExportConfig(
-            endpoint = "http://localhost:4318",
-            protocol = Protocol.HttpJson,
-            timeout = 5.seconds,
-        )
-        val target = object : HasExportConfig {
-            override var exportConfig: ExportConfig = ExportConfig()
-        }
+        val cfg =
+            ExportConfig(
+                endpoint = "http://localhost:4318",
+                protocol = Protocol.HttpJson,
+                timeout = 5.seconds,
+            )
+        val target =
+            object : HasExportConfig {
+                override var exportConfig: ExportConfig = ExportConfig()
+            }
         target.applyExportConfig(cfg)
         assertEquals("http://localhost:4318", target.exportConfig.endpoint)
         assertEquals(Protocol.HttpJson, target.exportConfig.protocol)

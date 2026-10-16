@@ -102,8 +102,13 @@ public fun SpanExporterBuilder<HttpExporterBuilderSet>.withHeaders(headers: Map<
 
 /** Supported transport client variants. */
 public sealed class SupportedTransportClient {
-    public class Tonic(public val client: TonicTracesClient) : SupportedTransportClient()
-    public class Http(public val client: OtlpHttpClient) : SupportedTransportClient()
+    public class Tonic(
+        public val client: TonicTracesClient,
+    ) : SupportedTransportClient()
+
+    public class Http(
+        public val client: OtlpHttpClient,
+    ) : SupportedTransportClient()
 }
 
 /** OTLP exporter that sends tracing data. */

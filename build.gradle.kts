@@ -120,6 +120,11 @@ configurations.configureEach {
             ),
         )
     }
+    if (name.contains("androidDeviceTest", ignoreCase = true) ||
+        (name.contains("Android", ignoreCase = true) && name.endsWith("RuntimeClasspath"))
+    ) {
+        exclude(group = "org.jetbrains", module = "annotations")
+    }
 }
 
 // Opt-ins shared across Kotlin targets.
@@ -968,7 +973,11 @@ tasks.register("hostTests") {
 // Patch generated SPM package: add macOS platform and resolve Swift reserved keywords
 tasks.matching { it.name.contains("GenerateSPMPackage") }.configureEach {
     doLast {
-        val spmDir = layout.buildDirectory.dir("SPMPackage").orNull?.asFile
+        val spmDir =
+            layout.buildDirectory
+                .dir("SPMPackage")
+                .orNull
+                ?.asFile
         if (spmDir != null && spmDir.exists()) {
             spmDir.walkTopDown().forEach { file ->
                 if (file.name == "Package.swift") {
@@ -984,12 +993,13 @@ tasks.matching { it.name.contains("GenerateSPMPackage") }.configureEach {
                 } else if (file.extension == "swift") {
                     var text = file.readText()
                     if (text.contains("Protocol")) {
-                        text = text
-                            .replace("public enum `Protocol`:", "public enum OtlpProtocol:")
-                            .replace("public enum Protocol:", "public enum OtlpProtocol:")
-                            .replace(".opentelemetryotlp.`Protocol`", ".opentelemetryotlp.OtlpProtocol")
-                            .replace(".opentelemetryotlp.Protocol", ".opentelemetryotlp.OtlpProtocol")
-                            .replace("Protocol.allCases", "OtlpProtocol.allCases")
+                        text =
+                            text
+                                .replace("public enum `Protocol`:", "public enum OtlpProtocol:")
+                                .replace("public enum Protocol:", "public enum OtlpProtocol:")
+                                .replace(".opentelemetryotlp.`Protocol`", ".opentelemetryotlp.OtlpProtocol")
+                                .replace(".opentelemetryotlp.Protocol", ".opentelemetryotlp.OtlpProtocol")
+                                .replace("Protocol.allCases", "OtlpProtocol.allCases")
                         if (file.name == "OpentelemetryOtlp.swift" && !text.contains("public typealias OtlpProtocol")) {
                             text = "public typealias OtlpProtocol = ExportedKotlinPackages.io.github.kotlinmania.opentelemetryotlp.OtlpProtocol\n" + text
                         }

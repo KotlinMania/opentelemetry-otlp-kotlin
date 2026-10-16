@@ -22,22 +22,24 @@ class HttpConfigTest {
 
     @Test
     fun testAllInvalidUrlsFallsBackToError() {
-        val result = resolveHttpEndpoint(
-            "OTEL_EXPORTER_OTLP_TRACES_ENDPOINT",
-            "/v1/traces",
-            "-*/*-/*-//-/-/yet-another-invalid-uri",
-        )
+        val result =
+            resolveHttpEndpoint(
+                "OTEL_EXPORTER_OTLP_TRACES_ENDPOINT",
+                "/v1/traces",
+                "-*/*-/*-//-/-/yet-another-invalid-uri",
+            )
         assertTrue(result.isFailure)
     }
 
     @Test
     fun testAddHeaderFromString() {
-        val testCases = listOf(
-            "k1=v1" to mapOf("k1" to "v1"),
-            "k1=v1,k2=v2" to mapOf("k1" to "v1", "k2" to "v2"),
-            "k1=v1=10,k2,k3" to mapOf("k1" to "v1=10"),
-            "k1=v1,,,k2,k3=10" to mapOf("k1" to "v1", "k3" to "10"),
-        )
+        val testCases =
+            listOf(
+                "k1=v1" to mapOf("k1" to "v1"),
+                "k1=v1,k2=v2" to mapOf("k1" to "v1", "k2" to "v2"),
+                "k1=v1=10,k2,k3" to mapOf("k1" to "v1=10"),
+                "k1=v1,,,k2,k3=10" to mapOf("k1" to "v1", "k3" to "10"),
+            )
 
         for ((inputStr, expectedHeaders) in testCases) {
             val headers = mutableMapOf<String, String>()
@@ -55,9 +57,10 @@ class HttpConfigTest {
         val extraHeaders = mapOf("k2" to "v2", "k3" to "v3")
         val expectedHeaders = mapOf("k1" to "v1", "k2" to "v2", "k3" to "v3")
 
-        val builder = HttpExporterBuilder(
-            httpConfig = HttpConfig(headers = initialHeaders),
-        )
+        val builder =
+            HttpExporterBuilder(
+                httpConfig = HttpConfig(headers = initialHeaders),
+            )
 
         val updated = builder.withHeaders(extraHeaders)
         assertEquals(expectedHeaders, updated.httpConfig.headers)
@@ -66,20 +69,23 @@ class HttpConfigTest {
     @Test
     fun testHttpExporterEndpoint() {
         val exporter = HttpExporterBuilder()
-        val url = resolveHttpEndpoint(
-            "OTEL_EXPORTER_OTLP_TRACES_ENDPOINT",
-            "/v1/traces",
-            exporter.exportConfig.endpoint,
-        ).getOrThrow()
+        val url =
+            resolveHttpEndpoint(
+                "OTEL_EXPORTER_OTLP_TRACES_ENDPOINT",
+                "/v1/traces",
+                exporter.exportConfig.endpoint,
+            ).getOrThrow()
         assertEquals("http://localhost:4318/v1/traces", url)
 
-        val customExporter = HttpExporterBuilder()
-            .withEndpoint("http://localhost:4318/v1/tracesbutnotreally")
-        val customUrl = resolveHttpEndpoint(
-            "OTEL_EXPORTER_OTLP_TRACES_ENDPOINT",
-            "/v1/traces",
-            customExporter.exportConfig.endpoint,
-        ).getOrThrow()
+        val customExporter =
+            HttpExporterBuilder()
+                .withEndpoint("http://localhost:4318/v1/tracesbutnotreally")
+        val customUrl =
+            resolveHttpEndpoint(
+                "OTEL_EXPORTER_OTLP_TRACES_ENDPOINT",
+                "/v1/traces",
+                customExporter.exportConfig.endpoint,
+            ).getOrThrow()
         assertEquals("http://localhost:4318/v1/tracesbutnotreally", customUrl)
     }
 }

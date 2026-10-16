@@ -19,5 +19,6 @@ public interface HasTonicConfig {
 /** Expose methods to override [TonicConfig]. */
 public interface WithTonicConfig<T : WithTonicConfig<T>> {
     public fun withMetadata(metadata: Map<String, String>): T
+
     public fun withCompression(compression: Compression): T
 }
