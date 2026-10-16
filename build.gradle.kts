@@ -120,6 +120,11 @@ configurations.configureEach {
             ),
         )
     }
+    if (name.contains("androidDeviceTest", ignoreCase = true) ||
+        (name.contains("Android", ignoreCase = true) && name.endsWith("RuntimeClasspath"))
+    ) {
+        exclude(group = "org.jetbrains", module = "annotations")
+    }
 }
 
 // Opt-ins shared across Kotlin targets.
@@ -685,6 +690,42 @@ rootProject.extensions.configure<NodeJsRootExtension>("kotlinNodeJs") {
     versions.kotlinWebHelpers.version = providers.gradleProperty("node.kotlinWebHelpers.version").getOrElse("3.1.0")
 }
 
+// Make kotlinUpgradeYarnLock and kotlinWasmUpgradeYarnLock dependencies in the build process
+// for KotlinJS and other JavaScript/WASM targets so that yarn.lock is always upgraded automatically.
+val jsTasksNeedingYarnLock =
+    setOf(
+        "compileKotlinJs",
+        "compileTestKotlinJs",
+        "jsProcessResources",
+        "jsTestProcessResources",
+        "jsNodeTest",
+        "jsBrowserTest",
+        "kotlinStoreYarnLock",
+    )
+
+tasks
+    .matching { it.name in jsTasksNeedingYarnLock }
+    .configureEach {
+        dependsOn("kotlinUpgradeYarnLock")
+    }
+
+val wasmTasksNeedingYarnLock =
+    setOf(
+        "compileKotlinWasmJs",
+        "compileTestKotlinWasmJs",
+        "wasmJsProcessResources",
+        "wasmJsTestProcessResources",
+        "wasmJsNodeTest",
+        "wasmJsBrowserTest",
+        "kotlinWasmStoreYarnLock",
+    )
+
+tasks
+    .matching { it.name in wasmTasksNeedingYarnLock }
+    .configureEach {
+        dependsOn("kotlinWasmUpgradeYarnLock")
+    }
+
 // ============================================================================
 // Maven Central publishing — Central Portal, first-party + bespoke upload
 // ----------------------------------------------------------------------------
@@ -898,6 +939,13 @@ val publishToCentralPortal by tasks.registering {
 // Exact test lifecycle task. Without this, ./gradlew test is ambiguous between
 // Android test task names. This runs commonTest through the KMP allTests
 // lifecycle and adds the Android host + Swift Export parity tests.
+tasks.register("test") {
+    group = "verification"
+    description = "Runs the commonTest-backed KMP suite, Android host tests, and Swift Export smoke test."
+    dependsOn("hostTests")
+    dependsOn("swiftExportSmokeTest")
+}
+
 tasks.register("setupAndroidSdk") {
     group = "setup"
     description = "Downloads and configures the project-local Android SDK. (Alias for ensureAndroidSdk)"
@@ -913,7 +961,9 @@ tasks.register("hostTests") {
     dependsOn(
         "jvmTest",
         "macosArm64Test",
+        "kotlinUpgradeYarnLock",
         "jsNodeTest",
+        "kotlinWasmUpgradeYarnLock",
         "wasmJsNodeTest",
         "wasmWasiNodeTest",
         "testAndroidHostTest",
@@ -923,7 +973,11 @@ tasks.register("hostTests") {
 // Patch generated SPM package: add macOS platform and resolve Swift reserved keywords
 tasks.matching { it.name.contains("GenerateSPMPackage") }.configureEach {
     doLast {
-        val spmDir = layout.buildDirectory.dir("SPMPackage").orNull?.asFile
+        val spmDir =
+            layout.buildDirectory
+                .dir("SPMPackage")
+                .orNull
+                ?.asFile
         if (spmDir != null && spmDir.exists()) {
             spmDir.walkTopDown().forEach { file ->
                 if (file.name == "Package.swift") {
@@ -939,12 +993,13 @@ tasks.matching { it.name.contains("GenerateSPMPackage") }.configureEach {
                 } else if (file.extension == "swift") {
                     var text = file.readText()
                     if (text.contains("Protocol")) {
-                        text = text
-                            .replace("public enum `Protocol`:", "public enum OtlpProtocol:")
-                            .replace("public enum Protocol:", "public enum OtlpProtocol:")
-                            .replace(".opentelemetryotlp.`Protocol`", ".opentelemetryotlp.OtlpProtocol")
-                            .replace(".opentelemetryotlp.Protocol", ".opentelemetryotlp.OtlpProtocol")
-                            .replace("Protocol.allCases", "OtlpProtocol.allCases")
+                        text =
+                            text
+                                .replace("public enum `Protocol`:", "public enum OtlpProtocol:")
+                                .replace("public enum Protocol:", "public enum OtlpProtocol:")
+                                .replace(".opentelemetryotlp.`Protocol`", ".opentelemetryotlp.OtlpProtocol")
+                                .replace(".opentelemetryotlp.Protocol", ".opentelemetryotlp.OtlpProtocol")
+                                .replace("Protocol.allCases", "OtlpProtocol.allCases")
                         if (file.name == "OpentelemetryOtlp.swift" && !text.contains("public typealias OtlpProtocol")) {
                             text = "public typealias OtlpProtocol = ExportedKotlinPackages.io.github.kotlinmania.opentelemetryotlp.OtlpProtocol\n" + text
                         }
@@ -1057,6 +1112,10 @@ val fullTargetBuildTaskNames =
                 "assembleAndroidDeviceTest",
                 "jvmMainClasses",
                 "jvmTestClasses",
+                "kotlinUpgradeYarnLock",
+                "kotlinStoreYarnLock",
+                "kotlinWasmUpgradeYarnLock",
+                "kotlinWasmStoreYarnLock",
                 "jsMainClasses",
                 "jsTestClasses",
                 "wasmJsMainClasses",
