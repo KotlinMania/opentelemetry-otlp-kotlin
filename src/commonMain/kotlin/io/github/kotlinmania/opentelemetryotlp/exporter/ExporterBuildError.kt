@@ -1,4 +1,3 @@
-// port-lint: source exporter/mod.rs
 package io.github.kotlinmania.opentelemetryotlp.exporter
 
 import kotlin.experimental.ExperimentalObjCRefinement

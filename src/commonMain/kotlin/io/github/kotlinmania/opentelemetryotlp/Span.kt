@@ -3,11 +3,14 @@ package io.github.kotlinmania.opentelemetryotlp
 
 import io.github.kotlinmania.opentelemetryotlp.exporter.Compression
 import io.github.kotlinmania.opentelemetryotlp.exporter.ExportConfig
+import io.github.kotlinmania.opentelemetryotlp.exporter.HasExportConfig
 import io.github.kotlinmania.opentelemetryotlp.exporter.http.HttpConfig
 import io.github.kotlinmania.opentelemetryotlp.exporter.http.OtlpHttpClient
+import io.github.kotlinmania.opentelemetryotlp.exporter.http.exportTrace
+import io.github.kotlinmania.opentelemetryotlp.exporter.http.setTraceResource
+import io.github.kotlinmania.opentelemetryotlp.exporter.http.shutdownTrace
 import io.github.kotlinmania.opentelemetryotlp.exporter.tonic.TonicConfig
 import io.github.kotlinmania.opentelemetryotlp.exporter.tonic.TonicTracesClient
-import kotlin.jvm.JvmName
 
 /** Target to which the exporter is going to send spans, defaults to https://localhost:4317/v1/traces. */
 public const val OTEL_EXPORTER_OTLP_TRACES_ENDPOINT: String = "OTEL_EXPORTER_OTLP_TRACES_ENDPOINT"
@@ -38,25 +41,33 @@ public class SpanExporterBuilder<C>(
     }
 }
 
-/** Build the [SpanExporter] with the gRPC Tonic transport. */
-@JvmName("buildTonic")
-public fun SpanExporterBuilder<TonicExporterBuilderSet>.build(): Result<SpanExporter> =
+private fun build(client: TonicExporterBuilderSet): Result<SpanExporter> =
     client.builder.buildSpanExporter()
 
-/** Build the [SpanExporter] with the HTTP transport. */
-@JvmName("buildHttp")
-public fun SpanExporterBuilder<HttpExporterBuilderSet>.build(): Result<SpanExporter> =
+private fun build(client: HttpExporterBuilderSet): Result<SpanExporter> =
     client.builder.buildSpanExporter()
 
-/** Return export config for Tonic builder. */
-@JvmName("exportConfigTonic")
-public fun SpanExporterBuilder<TonicExporterBuilderSet>.exportConfig(): ExportConfig =
+/** Build the [SpanExporter] with the configured transport. */
+public fun <C : HasExportConfig> SpanExporterBuilder<C>.build(): Result<SpanExporter> =
+    when (val c = client) {
+        is TonicExporterBuilderSet -> build(c)
+        is HttpExporterBuilderSet -> build(c)
+        else -> Result.failure(IllegalStateException("Unsupported exporter builder set"))
+    }
+
+private fun exportConfig(client: TonicExporterBuilderSet): ExportConfig =
     client.builder.exportConfig
 
-/** Return export config for HTTP builder. */
-@JvmName("exportConfigHttp")
-public fun SpanExporterBuilder<HttpExporterBuilderSet>.exportConfig(): ExportConfig =
+private fun exportConfig(client: HttpExporterBuilderSet): ExportConfig =
     client.builder.exportConfig
+
+/** Return export config for the configured builder. */
+public fun <C : HasExportConfig> SpanExporterBuilder<C>.exportConfig(): ExportConfig =
+    when (val c = client) {
+        is TonicExporterBuilderSet -> exportConfig(c)
+        is HttpExporterBuilderSet -> exportConfig(c)
+        else -> client.exportConfig
+    }
 
 /** Return Tonic config. */
 public fun SpanExporterBuilder<TonicExporterBuilderSet>.tonicConfig(): TonicConfig =
@@ -66,15 +77,8 @@ public fun SpanExporterBuilder<TonicExporterBuilderSet>.tonicConfig(): TonicConf
 public fun SpanExporterBuilder<HttpExporterBuilderSet>.httpClientConfig(): HttpConfig =
     client.builder.httpConfig
 
-@JvmName("withTonicEndpoint")
-public fun SpanExporterBuilder<TonicExporterBuilderSet>.withEndpoint(endpoint: String): SpanExporterBuilder<TonicExporterBuilderSet> {
-    client.builder.withEndpoint(endpoint)
-    return this
-}
-
-@JvmName("withHttpEndpoint")
-public fun SpanExporterBuilder<HttpExporterBuilderSet>.withEndpoint(endpoint: String): SpanExporterBuilder<HttpExporterBuilderSet> {
-    client.builder.withEndpoint(endpoint)
+public fun <C : HasExportConfig> SpanExporterBuilder<C>.withEndpoint(endpoint: String): SpanExporterBuilder<C> {
+    client.exportConfig.endpoint = endpoint
     return this
 }
 
@@ -83,15 +87,11 @@ public fun SpanExporterBuilder<TonicExporterBuilderSet>.withMetadata(metadata: M
     return this
 }
 
-@JvmName("withTonicCompression")
-public fun SpanExporterBuilder<TonicExporterBuilderSet>.withCompression(compression: Compression): SpanExporterBuilder<TonicExporterBuilderSet> {
-    client.builder.withCompression(compression)
-    return this
-}
-
-@JvmName("withHttpCompression")
-public fun SpanExporterBuilder<HttpExporterBuilderSet>.withCompression(compression: Compression): SpanExporterBuilder<HttpExporterBuilderSet> {
-    client.builder.withCompression(compression)
+public fun <C : HasExportConfig> SpanExporterBuilder<C>.withCompression(compression: Compression): SpanExporterBuilder<C> {
+    when (val c = client) {
+        is TonicExporterBuilderSet -> c.builder.withCompression(compression)
+        is HttpExporterBuilderSet -> c.builder.withCompression(compression)
+    }
     return this
 }
 
@@ -118,20 +118,20 @@ public class SpanExporter internal constructor(
     public suspend fun export(batch: List<Any>): Result<Unit> =
         when (client) {
             is SupportedTransportClient.Tonic -> client.client.export(batch)
-            is SupportedTransportClient.Http -> client.client.exportSpans(batch)
+            is SupportedTransportClient.Http -> client.client.exportTrace(batch)
         }
 
     public fun setResource(resource: Any) {
         when (client) {
             is SupportedTransportClient.Tonic -> client.client.setResource(resource)
-            is SupportedTransportClient.Http -> client.client.setResource(resource)
+            is SupportedTransportClient.Http -> client.client.setTraceResource(resource)
         }
     }
 
     public fun shutdown(): Result<Unit> =
         when (client) {
             is SupportedTransportClient.Tonic -> client.client.shutdown()
-            is SupportedTransportClient.Http -> client.client.shutdown()
+            is SupportedTransportClient.Http -> client.client.shutdownTrace()
         }
 
     public companion object {

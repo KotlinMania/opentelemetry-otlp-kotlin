@@ -1,4 +1,3 @@
-// port-lint: source exporter/mod.rs
 package io.github.kotlinmania.opentelemetryotlp.exporter
 
 import io.github.kotlinmania.opentelemetryotlp.Protocol
@@ -224,7 +223,7 @@ internal fun parseHeaderKeyValueString(keyValueString: String): Pair<String, Str
 /**
  * Parse the OTLP headers env var format, a comma-separated list of `key=value`
  * pairs. Trims surrounding whitespace from each segment and skips empty
- * segments, matching upstream `split_terminator`.
+ * segments.
  */
 internal fun parseHeaderString(value: String): Sequence<Pair<String, String>> =
     value

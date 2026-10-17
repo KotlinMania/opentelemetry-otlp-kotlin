@@ -1,4 +1,3 @@
-// port-lint: source exporter/http/mod.rs
 package io.github.kotlinmania.opentelemetryotlp.exporter.http
 
 import io.github.kotlinmania.opentelemetryotlp.exporter.ExportConfig
@@ -8,6 +7,7 @@ import kotlin.time.Duration
 public class OtlpHttpClient(
     public val exportConfig: ExportConfig = ExportConfig(),
     public val httpConfig: HttpConfig = HttpConfig(),
+    private var resource: Any? = null,
 ) {
     public suspend fun exportSpans(batch: List<Any>): Result<Unit> = Result.success(Unit)
 
@@ -19,5 +19,7 @@ public class OtlpHttpClient(
 
     public fun shutdownWithTimeout(timeout: Duration): Result<Unit> = Result.success(Unit)
 
-    public fun setResource(resource: Any) {}
+    public fun setResource(resource: Any) {
+        this.resource = resource
+    }
 }

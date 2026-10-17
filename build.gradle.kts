@@ -34,7 +34,6 @@ import java.util.zip.ZipInputStream
 
 plugins {
     alias(libs.plugins.kotlin.multiplatform)
-    alias(libs.plugins.kotlin.serialization)
     alias(libs.plugins.android.kmp)
     alias(libs.plugins.detekt)
     alias(libs.plugins.ktlint)
@@ -48,7 +47,7 @@ group = providers.gradleProperty("project.group").getOrElse("io.github.kotlinman
 version = providers.gradleProperty("project.version").getOrElse("0.1.0-SNAPSHOT")
 val frameworkName = providers.gradleProperty("project.frameworkName").getOrElse("Unnamed")
 val projectNamespace = providers.gradleProperty("project.namespace").getOrElse("io.github.kotlinmania")
-val kotlinVersion = providers.gradleProperty("versions.kotlin").getOrElse("2.4.0")
+val kotlinVersion = libs.versions.kotlin.get()
 val isCodeqlBuild = providers.gradleProperty("kotlinmania.codeql").map(String::toBoolean).getOrElse(false)
 val commonMainBundleName = providers.gradleProperty("project.dependencies.commonMainBundle").get()
 val commonMainDependencyBundle =
@@ -134,6 +133,11 @@ val commonOptIns =
         "kotlin.concurrent.atomics.ExperimentalAtomicApi",
         "kotlin.ExperimentalUnsignedTypes",
     )
+
+// Additional compiler flags from gradle.properties (comma-separated, e.g.
+// -Xcontext-parameters). Kept declarative so build.gradle.kts stays identical
+// to the workspace template across repos.
+val extraFreeCompilerArgs = csvProperty("project.kotlin.freeCompilerArgs").toList()
 
 // ============================================================================
 // Android SDK installer
@@ -316,7 +320,19 @@ fun requestedTaskWantsAndroid(rawTaskName: String): Boolean {
     val taskName = rawTaskName.substringAfterLast(':')
     if (taskName.contains("AndroidNative")) return false // Kotlin/Native, no SDK
     if (taskName.contains("Android")) return true // direct AGP tasks
-    return taskName in setOf("build", "assemble", "check") // aggregates pull android
+    // Aggregate verification/build tasks and IDE/CodeQL class-collection tasks
+    // transitively configure compileAndroidMain.
+    return taskName in
+        setOf(
+            "build",
+            "assemble",
+            "check",
+            "test",
+            "hostTests",
+            "allTests",
+            "classes",
+            "testClasses",
+        )
 }
 
 if (gradle.startParameter.taskNames.any(::requestedTaskWantsAndroid)) {
@@ -358,9 +374,11 @@ val jvmToolchainVersion = providers.gradleProperty("jvm.toolchain").getOrElse("2
 // ============================================================================
 // kotlin { … }
 // ----------------------------------------------------------------------------
-// watchosArm32: retired by workspace product policy (kmp-watchosarm32-retirement
-//   per AGENTS.md §5.5.1, effective 2026-05-24). Upstream KGP still ships it as
-//   Tier 2 — this is a deliberate product decision, not a framework deprecation.
+// Retired by workspace product policy (AGENTS.md §5.5):
+//   - watchosArm32 + watchosArm64 (32-bit ILP32 & arm64_32 Watch SDKs;
+//     watchosDeviceArm64 is the 64-bit replacement)
+//   - androidNativeArm32 + androidNativeX86 (32-bit Android NDK ABIs)
+//   - iosX64 (Intel Mac iOS simulator; joined macosX64/tvosX64/watchosX64)
 // Deprecated by KGP since 2.3.20 (never re-add): macosX64, tvosX64, watchosX64.
 // Every other target is built unconditionally — KotlinMania supports the full
 //   target surface, so there are NO opt-in build gates. The build gate is the
@@ -377,6 +395,7 @@ kotlin {
         allWarningsAsErrors.set(!isCodeqlBuild)
         optIn.addAll(commonOptIns)
         freeCompilerArgs.addAll("-Xexpect-actual-classes", "-Xsuppress-version-warnings")
+        freeCompilerArgs.addAll(extraFreeCompilerArgs)
     }
 
     val xcf = XCFramework(frameworkName)
@@ -424,10 +443,6 @@ kotlin {
         configureBenchmarkCompilation()
         addToXcf()
     }
-    watchosArm64 {
-        configureBenchmarkCompilation()
-        addToXcf()
-    }
     watchosDeviceArm64 {
         configureBenchmarkCompilation()
         addToXcf()
@@ -435,13 +450,6 @@ kotlin {
     watchosSimulatorArm64 {
         configureBenchmarkCompilation()
         addToXcf()
-    }
-
-    // iosX64: Intel Mac simulator. Tier 3 in Kotlin/Native but NOT deprecated —
-    // Apple still ships x86_64 iOS simulator runtimes, so it is always built.
-    iosX64 {
-        configureBenchmarkCompilation()
-        addToXcf(static = true)
     }
 
     // Other native — Tier 1/2
@@ -955,19 +963,46 @@ tasks.register("setupAndroidSdk") {
 // Explicit test runner. Named hostTests to avoid shadowing the KMP allTests
 // lifecycle task. Do not use findByName/mapNotNull here: missing test tasks
 // mean the target surface drifted and must fail loudly.
+//
+// Every target that can execute tests on the current host is wired here alongside
+// compilation of test binaries for cross-compiled/device targets (linux, mingw,
+// androidNative, iosArm64, tvosArm64, watchosDeviceArm64), so `./gradlew test`
+// verifies commonTest across the entire enabled target surface.
+val hostRunnableAppleTestTasks =
+    if (isMacHost) {
+        listOf(
+            "macosArm64Test",
+            "iosSimulatorArm64Test",
+            "tvosSimulatorArm64Test",
+            "watchosSimulatorArm64Test",
+        )
+    } else {
+        emptyList()
+    }
+
+val hostRunnableNativeTestTasks =
+    when {
+        isWindowsHost -> listOf("mingwX64Test")
+        !isMacHost -> listOf("linuxX64Test")
+        else -> emptyList()
+    }
+
 tasks.register("hostTests") {
     group = "verification"
-    description = "Runs the required real test suite (jvm, macosArm64, js, wasmJs, wasmWasi, android host)."
+    description = "Runs the full multiplatform test suite across all host-runnable targets and compiles all target test binaries."
     dependsOn(
         "jvmTest",
-        "macosArm64Test",
         "kotlinUpgradeYarnLock",
         "jsNodeTest",
         "kotlinWasmUpgradeYarnLock",
         "wasmJsNodeTest",
         "wasmWasiNodeTest",
         "testAndroidHostTest",
+        "compileAndroidDeviceTest",
     )
+    dependsOn(hostRunnableAppleTestTasks)
+    dependsOn(hostRunnableNativeTestTasks)
+    dependsOn(nativeTargetNames.map { "${it}TestBinaries" })
 }
 
 // Patch generated SPM package: add macOS platform and resolve Swift reserved keywords
@@ -981,15 +1016,24 @@ tasks.matching { it.name.contains("GenerateSPMPackage") }.configureEach {
         if (spmDir != null && spmDir.exists()) {
             spmDir.walkTopDown().forEach { file ->
                 if (file.name == "Package.swift") {
-                    val text = file.readText()
+                    var text = file.readText()
+                    // String-form deployment target avoids the PackageDescription enum cap
+                    // (.v14 in swift-tools-version 5.9, .v15 in 6.0) while passing
+                    // `-target arm64-apple-macos15.0` to clang/swiftc so standard-library
+                    // C++ headers (std::launder, etc.) on Xcode 26 / macOS 26 SDK compile.
+                    text =
+                        text
+                            .replace("// swift-tools-version: 5.8", "// swift-tools-version: 5.9")
+                            .replace(".macOS(.v15)", ".macOS(\"15.0\")")
+                            .replace(".macOS(.v14)", ".macOS(\"15.0\")")
                     if (!text.contains("platforms:")) {
-                        file.writeText(
+                        text =
                             text.replaceFirst(
                                 Regex("""(let package = Package\s*\(\s*name:\s*"[^"]*",)"""),
                                 "$1\n    platforms: [.macOS(\"15.0\")],",
-                            ),
-                        )
+                            )
                     }
+                    file.writeText(text)
                 } else if (file.extension == "swift") {
                     var text = file.readText()
                     if (text.contains("Protocol")) {
@@ -1076,8 +1120,8 @@ tasks.register("swiftExportSmokeTest") {
 // `build` aggregate
 // ----------------------------------------------------------------------------
 // Every configured native target, unconditionally. This is the audit contract —
-// it must mirror the kotlin { } target block exactly. watchosArm32 is the only
-// retired native target (see §5.5.1); everything else MUST build.
+// it must mirror the kotlin { } target block exactly. Retired targets are listed
+// in the kotlin { } header above; everything else MUST build.
 // Do not add a dynamic tasks.matching fallback here: copied templates must make
 // the target surface explicit so missing declarations fail loudly in review.
 // ============================================================================
@@ -1087,14 +1131,12 @@ val nativeTargetNames =
         "androidNativeX64",
         "iosArm64",
         "iosSimulatorArm64",
-        "iosX64",
         "linuxArm64",
         "linuxX64",
         "macosArm64",
         "mingwX64",
         "tvosArm64",
         "tvosSimulatorArm64",
-        "watchosArm64",
         "watchosDeviceArm64",
         "watchosSimulatorArm64",
     )

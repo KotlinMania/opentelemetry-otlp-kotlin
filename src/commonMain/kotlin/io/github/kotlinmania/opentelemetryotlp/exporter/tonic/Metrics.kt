@@ -8,9 +8,31 @@ public class TonicMetricsClient(
     public val exportConfig: ExportConfig = ExportConfig(),
     public val tonicConfig: TonicConfig = TonicConfig(),
 ) {
-    public suspend fun export(metrics: Any): Result<Unit> = Result.success(Unit)
+    private class ClientInner(
+        val exportConfig: ExportConfig,
+        val tonicConfig: TonicConfig,
+    )
 
-    public fun shutdown(): Result<Unit> = Result.success(Unit)
+    private var inner: ClientInner? = ClientInner(exportConfig, tonicConfig)
+
+    public fun fmt(): String = "TonicMetricsClient"
+
+    override fun toString(): String = fmt()
+
+    public suspend fun export(metrics: Any): Result<Unit> =
+        if (inner != null) {
+            Result.success(Unit)
+        } else {
+            Result.failure(IllegalStateException("AlreadyShutdown"))
+        }
+
+    public fun shutdown(): Result<Unit> =
+        if (inner != null) {
+            inner = null
+            Result.success(Unit)
+        } else {
+            Result.failure(IllegalStateException("AlreadyShutdown"))
+        }
 
     public companion object {
         public fun new(
