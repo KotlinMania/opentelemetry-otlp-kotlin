@@ -1,4 +1,3 @@
-// port-lint: tests exporter/tonic/mod.rs
 package io.github.kotlinmania.opentelemetryotlp.exporter.tonic
 
 import io.github.kotlinmania.opentelemetryotlp.exporter.Compression

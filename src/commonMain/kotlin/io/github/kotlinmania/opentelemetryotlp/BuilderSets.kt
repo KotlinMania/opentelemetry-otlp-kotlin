@@ -1,6 +1,7 @@
-// port-lint: source lib.rs
 package io.github.kotlinmania.opentelemetryotlp
 
+import io.github.kotlinmania.opentelemetryotlp.exporter.ExportConfig
+import io.github.kotlinmania.opentelemetryotlp.exporter.HasExportConfig
 import io.github.kotlinmania.opentelemetryotlp.exporter.http.HttpExporterBuilder
 import io.github.kotlinmania.opentelemetryotlp.exporter.tonic.TonicExporterBuilder
 
@@ -16,7 +17,13 @@ public class NoExporterBuilderSet {
  */
 public class TonicExporterBuilderSet(
     public val builder: TonicExporterBuilder = TonicExporterBuilder(),
-) {
+) : HasExportConfig {
+    override var exportConfig: ExportConfig
+        get() = builder.exportConfig
+        set(value) {
+            builder.exportConfig = value
+        }
+
     override fun toString(): String = "TonicExporterBuilderSet"
 }
 
@@ -27,6 +34,12 @@ public class TonicExporterBuilderSet(
  */
 public class HttpExporterBuilderSet(
     public val builder: HttpExporterBuilder = HttpExporterBuilder(),
-) {
+) : HasExportConfig {
+    override var exportConfig: ExportConfig
+        get() = builder.exportConfig
+        set(value) {
+            builder.exportConfig = value
+        }
+
     override fun toString(): String = "HttpExporterBuilderSet"
 }

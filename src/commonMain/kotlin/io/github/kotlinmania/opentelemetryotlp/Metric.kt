@@ -2,8 +2,11 @@
 package io.github.kotlinmania.opentelemetryotlp
 
 import io.github.kotlinmania.opentelemetryotlp.exporter.ExportConfig
+import io.github.kotlinmania.opentelemetryotlp.exporter.HasExportConfig
 import io.github.kotlinmania.opentelemetryotlp.exporter.http.HttpConfig
 import io.github.kotlinmania.opentelemetryotlp.exporter.http.OtlpHttpClient
+import io.github.kotlinmania.opentelemetryotlp.exporter.http.export
+import io.github.kotlinmania.opentelemetryotlp.exporter.http.shutdownMetrics
 import io.github.kotlinmania.opentelemetryotlp.exporter.tonic.TonicConfig
 import io.github.kotlinmania.opentelemetryotlp.exporter.tonic.TonicMetricsClient
 import kotlin.time.Duration
@@ -49,25 +52,37 @@ public class MetricExporterBuilder<C>(
     }
 }
 
-/** Build the [MetricExporter] with the gRPC Tonic transport. */
-@kotlin.jvm.JvmName("buildTonic")
-public fun MetricExporterBuilder<TonicExporterBuilderSet>.build(): Result<MetricExporter> =
-    client.builder.buildMetricsExporter(temporality)
+private fun build(
+    client: TonicExporterBuilderSet,
+    temporality: Temporality,
+): Result<MetricExporter> = client.builder.buildMetricsExporter(temporality)
 
-/** Build the [MetricExporter] with the HTTP transport. */
-@kotlin.jvm.JvmName("buildHttp")
-public fun MetricExporterBuilder<HttpExporterBuilderSet>.build(): Result<MetricExporter> =
-    client.builder.buildMetricsExporter(temporality)
+private fun build(
+    client: HttpExporterBuilderSet,
+    temporality: Temporality,
+): Result<MetricExporter> = client.builder.buildMetricsExporter(temporality)
 
-/** Return export config for Tonic builder. */
-@kotlin.jvm.JvmName("exportConfigTonic")
-public fun MetricExporterBuilder<TonicExporterBuilderSet>.exportConfig(): ExportConfig =
+/** Build the [MetricExporter] with the configured transport. */
+public fun <C : HasExportConfig> MetricExporterBuilder<C>.build(): Result<MetricExporter> =
+    when (val c = client) {
+        is TonicExporterBuilderSet -> build(c, temporality)
+        is HttpExporterBuilderSet -> build(c, temporality)
+        else -> Result.failure(IllegalStateException("Unsupported exporter builder set"))
+    }
+
+private fun exportConfig(client: TonicExporterBuilderSet): ExportConfig =
     client.builder.exportConfig
 
-/** Return export config for HTTP builder. */
-@kotlin.jvm.JvmName("exportConfigHttp")
-public fun MetricExporterBuilder<HttpExporterBuilderSet>.exportConfig(): ExportConfig =
+private fun exportConfig(client: HttpExporterBuilderSet): ExportConfig =
     client.builder.exportConfig
+
+/** Return export config for the configured builder. */
+public fun <C : HasExportConfig> MetricExporterBuilder<C>.exportConfig(): ExportConfig =
+    when (val c = client) {
+        is TonicExporterBuilderSet -> exportConfig(c)
+        is HttpExporterBuilderSet -> exportConfig(c)
+        else -> client.exportConfig
+    }
 
 /** Return Tonic config. */
 public fun MetricExporterBuilder<TonicExporterBuilderSet>.tonicConfig(): TonicConfig =
@@ -106,7 +121,7 @@ public class MetricExporter internal constructor(
     public suspend fun export(metrics: Any): Result<Unit> =
         when (client) {
             is SupportedTransportClient.Tonic -> client.client.export(metrics)
-            is SupportedTransportClient.Http -> client.client.exportMetrics(metrics)
+            is SupportedTransportClient.Http -> client.client.export(metrics)
         }
 
     public fun forceFlush(): Result<Unit> = Result.success(Unit)
@@ -116,7 +131,7 @@ public class MetricExporter internal constructor(
     public fun shutdownWithTimeout(timeout: Duration): Result<Unit> =
         when (client) {
             is SupportedTransportClient.Tonic -> client.client.shutdown()
-            is SupportedTransportClient.Http -> client.client.shutdown()
+            is SupportedTransportClient.Http -> client.client.shutdownMetrics()
         }
 
     public fun temporality(): Temporality = temporality

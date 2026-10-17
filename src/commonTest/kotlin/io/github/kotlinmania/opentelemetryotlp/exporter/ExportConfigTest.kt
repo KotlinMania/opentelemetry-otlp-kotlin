@@ -1,7 +1,8 @@
-// port-lint: tests exporter/mod.rs
 package io.github.kotlinmania.opentelemetryotlp.exporter
 
 import io.github.kotlinmania.opentelemetryotlp.Protocol
+import io.github.kotlinmania.serdecore.de.value.intoDeserializer
+import io.github.kotlinmania.serdecore.ser.FormatterSerializer
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNull
@@ -48,6 +49,32 @@ class ExportConfigTest {
         val err = result.exceptionOrNull()
         assertTrue(err is ExporterBuildError.UnsupportedCompressionAlgorithm)
         assertEquals("snappy", err.algorithm)
+    }
+
+    @Test
+    fun testProtocolSerde() {
+        for (protocol in Protocol.entries) {
+            val sb = StringBuilder()
+            assertTrue(protocol.serialize(FormatterSerializer(sb)).isSuccess)
+            assertEquals(protocol.name, sb.toString())
+            assertEquals(protocol, Protocol.deserialize(protocol.name.intoDeserializer()).getOrThrow())
+            assertEquals(protocol, Protocol.deserialize(protocol.ordinal.toUInt().intoDeserializer()).getOrThrow())
+        }
+        assertTrue(Protocol.deserialize("Unknown".intoDeserializer()).isFailure)
+        assertTrue(Protocol.deserialize(99u.intoDeserializer()).isFailure)
+    }
+
+    @Test
+    fun testCompressionSerde() {
+        for (compression in Compression.entries) {
+            val sb = StringBuilder()
+            assertTrue(compression.serialize(FormatterSerializer(sb)).isSuccess)
+            assertEquals(compression.name, sb.toString())
+            assertEquals(compression, Compression.deserialize(compression.name.intoDeserializer()).getOrThrow())
+            assertEquals(compression, Compression.deserialize(compression.ordinal.toUInt().intoDeserializer()).getOrThrow())
+        }
+        assertTrue(Compression.deserialize("Snappy".intoDeserializer()).isFailure)
+        assertTrue(Compression.deserialize(99u.intoDeserializer()).isFailure)
     }
 
     @Test
@@ -110,6 +137,6 @@ class ExportConfigTest {
     fun testDefaultHeaders() {
         val headers = defaultHeaders()
         assertTrue(headers.containsKey("User-Agent"))
-        assertTrue(headers["User-Agent"]!!.startsWith("OTel-OTLP-Exporter-Rust/"))
+        assertEquals(true, headers["User-Agent"]?.startsWith("OTel-OTLP-Exporter-Rust/"))
     }
 }

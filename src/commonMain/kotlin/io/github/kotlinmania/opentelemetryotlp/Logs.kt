@@ -2,8 +2,12 @@
 package io.github.kotlinmania.opentelemetryotlp
 
 import io.github.kotlinmania.opentelemetryotlp.exporter.ExportConfig
+import io.github.kotlinmania.opentelemetryotlp.exporter.HasExportConfig
 import io.github.kotlinmania.opentelemetryotlp.exporter.http.HttpConfig
 import io.github.kotlinmania.opentelemetryotlp.exporter.http.OtlpHttpClient
+import io.github.kotlinmania.opentelemetryotlp.exporter.http.exportLogsBatch
+import io.github.kotlinmania.opentelemetryotlp.exporter.http.setLogsResource
+import io.github.kotlinmania.opentelemetryotlp.exporter.http.shutdownLogsWithTimeout
 import io.github.kotlinmania.opentelemetryotlp.exporter.tonic.TonicConfig
 import io.github.kotlinmania.opentelemetryotlp.exporter.tonic.TonicLogsClient
 import kotlin.time.Duration
@@ -38,25 +42,33 @@ public class LogExporterBuilder<C>(
     }
 }
 
-/** Build the [LogExporter] with the gRPC Tonic transport. */
-@kotlin.jvm.JvmName("buildTonic")
-public fun LogExporterBuilder<TonicExporterBuilderSet>.build(): Result<LogExporter> =
+private fun build(client: TonicExporterBuilderSet): Result<LogExporter> =
     client.builder.buildLogExporter()
 
-/** Build the [LogExporter] with the HTTP transport. */
-@kotlin.jvm.JvmName("buildHttp")
-public fun LogExporterBuilder<HttpExporterBuilderSet>.build(): Result<LogExporter> =
+private fun build(client: HttpExporterBuilderSet): Result<LogExporter> =
     client.builder.buildLogExporter()
 
-/** Return export config for Tonic builder. */
-@kotlin.jvm.JvmName("exportConfigTonic")
-public fun LogExporterBuilder<TonicExporterBuilderSet>.exportConfig(): ExportConfig =
+/** Build the [LogExporter] with the configured transport. */
+public fun <C : HasExportConfig> LogExporterBuilder<C>.build(): Result<LogExporter> =
+    when (val c = client) {
+        is TonicExporterBuilderSet -> build(c)
+        is HttpExporterBuilderSet -> build(c)
+        else -> Result.failure(IllegalStateException("Unsupported exporter builder set"))
+    }
+
+private fun exportConfig(client: TonicExporterBuilderSet): ExportConfig =
     client.builder.exportConfig
 
-/** Return export config for HTTP builder. */
-@kotlin.jvm.JvmName("exportConfigHttp")
-public fun LogExporterBuilder<HttpExporterBuilderSet>.exportConfig(): ExportConfig =
+private fun exportConfig(client: HttpExporterBuilderSet): ExportConfig =
     client.builder.exportConfig
+
+/** Return export config for the configured builder. */
+public fun <C : HasExportConfig> LogExporterBuilder<C>.exportConfig(): ExportConfig =
+    when (val c = client) {
+        is TonicExporterBuilderSet -> exportConfig(c)
+        is HttpExporterBuilderSet -> exportConfig(c)
+        else -> client.exportConfig
+    }
 
 /** Return Tonic config. */
 public fun LogExporterBuilder<TonicExporterBuilderSet>.tonicConfig(): TonicConfig =
@@ -83,20 +95,20 @@ public class LogExporter internal constructor(
     public suspend fun export(batch: List<Any>): Result<Unit> =
         when (client) {
             is SupportedTransportClient.Tonic -> client.client.export(batch)
-            is SupportedTransportClient.Http -> client.client.exportLogs(batch)
+            is SupportedTransportClient.Http -> client.client.exportLogsBatch(batch)
         }
 
     public fun setResource(resource: Any) {
         when (client) {
             is SupportedTransportClient.Tonic -> client.client.setResource(resource)
-            is SupportedTransportClient.Http -> client.client.setResource(resource)
+            is SupportedTransportClient.Http -> client.client.setLogsResource(resource)
         }
     }
 
     public fun shutdownWithTimeout(timeout: Duration): Result<Unit> =
         when (client) {
             is SupportedTransportClient.Tonic -> client.client.shutdownWithTimeout(timeout)
-            is SupportedTransportClient.Http -> client.client.shutdownWithTimeout(timeout)
+            is SupportedTransportClient.Http -> client.client.shutdownLogsWithTimeout(timeout)
         }
 
     public companion object {

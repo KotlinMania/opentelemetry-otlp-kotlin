@@ -7,12 +7,37 @@ import io.github.kotlinmania.opentelemetryotlp.exporter.ExportConfig
 public class TonicTracesClient(
     public val exportConfig: ExportConfig = ExportConfig(),
     public val tonicConfig: TonicConfig = TonicConfig(),
+    private var resource: Any? = null,
 ) {
-    public suspend fun export(batch: List<Any>): Result<Unit> = Result.success(Unit)
+    private class ClientInner(
+        val exportConfig: ExportConfig,
+        val tonicConfig: TonicConfig,
+    )
 
-    public fun shutdown(): Result<Unit> = Result.success(Unit)
+    private var inner: ClientInner? = ClientInner(exportConfig, tonicConfig)
 
-    public fun setResource(resource: Any) {}
+    public fun fmt(): String = "TonicTracesClient"
+
+    override fun toString(): String = fmt()
+
+    public suspend fun export(batch: List<Any>): Result<Unit> =
+        if (inner != null) {
+            Result.success(Unit)
+        } else {
+            Result.failure(IllegalStateException("AlreadyShutdown"))
+        }
+
+    public fun shutdown(): Result<Unit> =
+        if (inner != null) {
+            inner = null
+            Result.success(Unit)
+        } else {
+            Result.failure(IllegalStateException("AlreadyShutdown"))
+        }
+
+    public fun setResource(resource: Any) {
+        this.resource = resource
+    }
 
     public companion object {
         public fun new(

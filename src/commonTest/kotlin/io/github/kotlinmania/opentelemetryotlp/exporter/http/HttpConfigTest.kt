@@ -1,4 +1,3 @@
-// port-lint: tests exporter/http/mod.rs
 package io.github.kotlinmania.opentelemetryotlp.exporter.http
 
 import kotlin.test.Test
