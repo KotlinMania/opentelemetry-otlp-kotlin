@@ -6,7 +6,7 @@ import OpentelemetryOtlp
 struct OpentelemetryOtlpExportTests {
     @Test("Swift module loads and imports cleanly")
     func swiftModuleLoads() {
-        #expect(true)
+        #expect(Bool(true))
     }
 
     @Test("Protocol, Compression, Temporality, and ExportConfig interoperate cleanly")
